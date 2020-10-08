@@ -24,6 +24,7 @@ const (
 
 var (
 	bpfTraceBinaryPath = "/usr/bin/bpftrace"
+	bccToolsDir        = "/usr/share/bcc/tools/"
 )
 
 type TraceRunnerOptions struct {
@@ -125,7 +126,8 @@ func (o *TraceRunnerOptions) Complete(cmd *cobra.Command, args []string) error {
 
 func (o *TraceRunnerOptions) Run() error {
 	var err error
-	var binary, args *string
+	var binary *string
+	var args []string
 	switch o.tracer {
 	case bpftrace:
 		binary, args, err = o.prepBpfTraceCommand()
@@ -165,10 +167,10 @@ func (o *TraceRunnerOptions) Run() error {
 	}()
 
 	var c *exec.Cmd
-	if args == nil || len(*args) == 0 {
+	if len(args) == 0 {
 		c = exec.CommandContext(ctx, *binary)
 	} else {
-		c = exec.CommandContext(ctx, *binary, *args)
+		c = exec.CommandContext(ctx, *binary, args...)
 	}
 
 	c.Stdout = os.Stdout
@@ -177,7 +179,7 @@ func (o *TraceRunnerOptions) Run() error {
 	return c.Run()
 }
 
-func (o *TraceRunnerOptions) prepBpfTraceCommand() (*string, *string, error) {
+func (o *TraceRunnerOptions) prepBpfTraceCommand() (*string, []string, error) {
 	programPath := o.program
 
 	// Render $container_pid to actual process pid if scoped to container.
@@ -199,11 +201,43 @@ func (o *TraceRunnerOptions) prepBpfTraceCommand() (*string, *string, error) {
 		}
 	}
 
-	return &bpfTraceBinaryPath, &programPath, nil
+	return &bpfTraceBinaryPath, []string{programPath}, nil
 }
 
-func (o *TraceRunnerOptions) prepBccCommand() (*string, *string, error) {
-	return nil, nil, fmt.Errorf("tracer bcc not implemented")
+func (o *TraceRunnerOptions) prepBccCommand() (*string, []string, error) {
+	// Sanitize o.program by removing common prefix/suffixes.
+	name := o.program
+	name = strings.TrimPrefix(name, "/usr/bin/")
+	name = strings.TrimPrefix(name, "/usr/sbin/")
+	name = strings.TrimSuffix(name, "-bpfcc")
+
+	program := bccToolsDir + name
+	programArgs := o.programArgs
+
+	podUID, _ := o.parsedSelector.PodUID()
+	container, ok := o.parsedSelector.Container()
+	if ok {
+		pid, err := findPidByPodContainer(podUID, container)
+		if err != nil {
+			return nil, nil, err
+		}
+		programArgs = strings.Replace(programArgs, "$container_pid", *pid, -1)
+	}
+
+	args := []string{}
+	if len(programArgs) > 0 {
+		// We take all additional parameters as a single string in the CLI and if we try and
+		// parse it ourselves we could make a mistake. This is uglier but a safer mechanism
+		// for the user to provide each argument separated by a semicolor. The invocation
+		// would look something like
+		// kubectl trace run --tracer='bcc' ... --program-args='-t; -p $container_pid; -L 8080'
+		args = strings.Split(programArgs, ";")
+		for i, arg := range args {
+			args[i] = strings.TrimSpace(arg)
+		}
+	}
+
+	return &program, args, nil
 }
 
 func findPidByPodContainer(podUID, containerName string) (*string, error) {
