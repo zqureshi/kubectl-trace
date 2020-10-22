@@ -1,5 +1,7 @@
 ARG bpftraceversion=v0.11.1
+ARG bccversion=v0.16.0-focal-release
 FROM quay.io/iovisor/bpftrace:$bpftraceversion as bpftrace
+FROM quay.io/iovisor/bcc:$bccversion as bcc
 
 FROM golang:1.15-buster as gobuilder
 ARG GIT_ORG=iovisor
@@ -16,6 +18,11 @@ FROM ubuntu:20.04
 
 RUN apt-get update
 RUN apt-get install -y xz-utils
+
+# Install bcc by copying apt packages from docker image
+COPY --from=bcc /root/bcc /tmp/bcc
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y python python3 binutils libelf1 kmod && \
+  dpkg -i /tmp/bcc/*.deb && rm -rf /tmp/bcc
 
 COPY --from=gobuilder /go/src/github.com/iovisor/kubectl-trace/_output/bin/trace-runner /bin/trace-runner
 COPY --from=bpftrace /usr/bin/bpftrace /usr/bin/bpftrace

@@ -27,6 +27,7 @@ IMAGE_INITCONTAINER_LATEST := $(IMAGE_NAME_INIT):latest
 IMAGE_BUILD_FLAGS ?= "--no-cache"
 
 BPFTRACEVERSION ?= "v0.11.1"
+BCCVERSION ?= "v0.16.0-focal-release"
 
 LDFLAGS := -ldflags '-X github.com/iovisor/kubectl-trace/pkg/version.buildTime=$(shell date +%s) -X github.com/iovisor/kubectl-trace/pkg/version.gitCommit=${GIT_COMMIT} -X github.com/iovisor/kubectl-trace/pkg/cmd.ImageName=${IMAGE_NAME} -X github.com/iovisor/kubectl-trace/pkg/cmd.ImageTag=${GIT_COMMIT} -X github.com/iovisor/kubectl-trace/pkg/cmd.InitImageName=${IMAGE_NAME_INIT} -X github.com/iovisor/kubectl-trace/pkg/cmd.InitImageTag=${GIT_COMMIT}'
 TESTPACKAGES := $(shell go list ./... | grep -v github.com/iovisor/kubectl-trace/integration)
@@ -70,6 +71,7 @@ image/build:
 	$(DOCKER) build \
 		--build-arg bpftraceversion=$(BPFTRACEVERSION) \
 		--build-arg GIT_ORG=$(GIT_ORG) \
+		--build-arg bccversion=$(BCCVERSION) \
 		$(IMAGE_BUILD_FLAGS) \
 		-t "$(IMAGE_TRACERUNNER_BRANCH)" \
 		-f build/Dockerfile.tracerunner .
