@@ -34,6 +34,7 @@ type TraceJob struct {
 	Selector            string
 	Output              string
 	Program             string
+	ProgramArgs         string
 	ImageNameTag        string
 	InitImageNameTag    string
 	FetchHeaders        bool
@@ -203,6 +204,10 @@ func (t *TraceJobClient) CreateJob(nj TraceJob) (*batchv1.Job, error) {
 		traceCmd = append(traceCmd, "--program=/programs/program.bt")
 	} else {
 		traceCmd = append(traceCmd, "--program="+nj.Program)
+	}
+
+	if len(nj.ProgramArgs) > 0 {
+		traceCmd = append(traceCmd, "--program-args="+nj.ProgramArgs)
 	}
 
 	commonMeta := metav1.ObjectMeta{
