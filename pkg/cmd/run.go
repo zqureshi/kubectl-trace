@@ -89,7 +89,7 @@ type RunOptions struct {
 	tracer         string
 	selector       string
 	program        string
-	programArgs    string
+	programArgs    []string
 	tracerDefined  bool
 	parsedSelector *tracejob.Selector
 
@@ -153,7 +153,7 @@ func NewRunCommand(factory cmdutil.Factory, streams genericclioptions.IOStreams)
 	cmd.Flags().StringVar(&o.tracer, "tracer", "bpftrace", "Tracing system to use")
 	cmd.Flags().StringVar(&o.selector, "selector", "", "Selector (label query) to filter on")
 	cmd.Flags().StringVar(&o.program, "program", o.program, "Program to execute")
-	cmd.Flags().StringVar(&o.programArgs, "program-args", o.programArgs, "Additional arguments to pass on to program (semicolon separated)")
+	cmd.Flags().StringArrayVar(&o.programArgs, "args", o.programArgs, "Additional arguments to pass on to program, repeat flag for multiple arguments")
 
 	// global flags
 	cmd.Flags().BoolVarP(&o.attach, "attach", "a", o.attach, "Whether or not to attach to the trace program once it is created")

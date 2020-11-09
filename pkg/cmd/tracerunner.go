@@ -55,7 +55,7 @@ type TraceRunnerOptions struct {
 
 	// In the case of bcc the user provided arguments to pass on to program.
 	// Not used for bpftrace.
-	programArgs string
+	programArgs []string
 
 	// Values populated after validation
 	parsedSelector *tracejob.Selector
@@ -87,7 +87,7 @@ func NewTraceRunnerCommand() *cobra.Command {
 	cmd.Flags().StringVar(&o.selector, "selector", "", "Selector (label query) to filter on")
 	cmd.Flags().StringVar(&o.output, "output", "stdout", "Where will the tracing system send output")
 	cmd.Flags().StringVar(&o.program, "program", "/programs/program.bt", "Tracer input script or executable")
-	cmd.Flags().StringVar(&o.programArgs, "program-args", o.programArgs, "Arguments to pass through to executable in --program")
+	cmd.Flags().StringArrayVar(&o.programArgs, "args", o.programArgs, "Arguments to pass through to executable in --program")
 	return cmd
 }
 
@@ -212,7 +212,7 @@ func (o *TraceRunnerOptions) prepBccCommand() (*string, []string, error) {
 	name = strings.TrimSuffix(name, "-bpfcc")
 
 	program := bccToolsDir + name
-	programArgs := o.programArgs
+	args := []string{}
 
 	podUID, _ := o.parsedSelector.PodUID()
 	container, ok := o.parsedSelector.Container()
@@ -221,19 +221,9 @@ func (o *TraceRunnerOptions) prepBccCommand() (*string, []string, error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		programArgs = strings.Replace(programArgs, "$container_pid", *pid, -1)
-	}
 
-	args := []string{}
-	if len(programArgs) > 0 {
-		// We take all additional parameters as a single string in the CLI and if we try and
-		// parse it ourselves we could make a mistake. This is uglier but a safer mechanism
-		// for the user to provide each argument separated by a semicolor. The invocation
-		// would look something like
-		// kubectl trace run --tracer='bcc' ... --program-args='-t; -p $container_pid; -L 8080'
-		args = strings.Split(programArgs, ";")
-		for i, arg := range args {
-			args[i] = strings.TrimSpace(arg)
+		for _, arg := range o.programArgs {
+			args = append(args, strings.Replace(arg, "$container_pid", *pid, -1))
 		}
 	}
 
